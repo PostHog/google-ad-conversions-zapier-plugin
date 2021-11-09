@@ -157,7 +157,7 @@ export function eventMatchesDefinition(event, eventDetails) {
     return true
 }
 
-function matchValue(needle, haystack, operator: PropertyOperator | ActionStepUrlMatching): boolean {
+export function matchValue(needle, haystack, operator: PropertyOperator | ActionStepUrlMatching): boolean {
     const REGEX_WARNING = 'Regex matching with NodeJS library, while action matching usually uses Postgres regex.'
     switch (operator) {
         case PropertyOperator.Exact:
@@ -183,9 +183,9 @@ function matchValue(needle, haystack, operator: PropertyOperator | ActionStepUrl
         case PropertyOperator.LessThan:
             return haystack < needle
         case PropertyOperator.IsSet:
-            return !!needle
+            return needle === 0 || needle === false || !!needle
         case PropertyOperator.IsNotSet:
-            return needle === null
+            return needle === null || needle === ''
         default:
             return false
     }

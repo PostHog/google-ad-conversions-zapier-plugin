@@ -1,0 +1,20 @@
+{
+  "name": "google-ad-conversions-zapier-plugin",
+  "version": "1.0.0",
+  "description": "Sends Google Ads conversion events to a Zapier webhook",
+  "main": "index.ts",
+  "repository": "https://github.com/PostHog/google-ad-conversions-zapier-plugin.git",
+  "author": "Sam Winslow",
+  "license": "MIT",
+  "private": false,
+  "scripts": {
+    "test": "./node_modules/.bin/jest"
+  },
+  "devDependencies": {
+    "@babel/preset-env": "^7.16.0",
+    "@babel/preset-typescript": "^7.16.0",
+    "@posthog/plugin-scaffold": "^0.12.9",
+    "@types/jest": "^27.0.2",
+    "jest": "^27.3.1"
+  }
+}
