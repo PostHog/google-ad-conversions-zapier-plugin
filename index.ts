@@ -9,6 +9,28 @@ export interface UserBasicType {
     email: string
 }
 
+export interface ElementType {
+    attr_class?: string[]
+    attr_id?: string
+    attributes: Record<string, string>
+    href: string
+    nth_child: number
+    nth_of_type: number
+    order: number
+    tag_name: string
+    text?: string
+}
+
+export interface EventType {
+    elements: ElementType[]
+    elements_hash: string | null
+    id: number | string
+    properties: Record<string, any>
+    timestamp: string
+    person?: null
+    event: string
+}
+
 export interface ActionType {
     count?: number
     created_at: string
@@ -69,6 +91,23 @@ export interface ActionStepType {
     isNew?: string
 }
 
+export type ActionSingleEventDefinition = {
+    id: number
+    eventDetails: {
+        id: string,
+        event: string,
+        tag_name: string | null,
+        text: string | null,
+        href: string | null,
+        selector: string | null,
+        url: string | null,
+        name: string | null,
+        url_matching: ActionStepUrlMatching | null,
+        properties: AnyPropertyFilter[] | null,
+    }
+    conversionName: string
+}
+
 export async function setupPlugin({ config, global }) {
     const actionMap = config.action_map.split(',').map(entry => entry.split(':'))
     const actions: ActionType[] = await Promise.all(actionMap.map(([actionId]) => getActionDefinition(actionId)))
@@ -86,7 +125,7 @@ export async function setupPlugin({ config, global }) {
     global.conversionDefinitions = conversionDefinitions
 }
 
-async function getActionDefinition(actionId) {
+async function getActionDefinition(actionId): Promise<ActionType> {
     const response = await posthog.api.get(`/api/projects/@current/actions/${actionId}/`, {
         host: 'http://localhost:8000',
     })
@@ -113,24 +152,45 @@ export function getConversionEvent(event, eventNames, conversionDefinitions) {
     return conversion?.conversionName
 }
 
-export function eventMatchesDefinition(event, eventDetails) {
-    const strictEqualityKeys = ['event']
-    const nullableEqualityKeys = ['tag_name', 'text', 'href', 'selector']
-    strictEqualityKeys.forEach(key => {
-        if (event[key] !== eventDetails[key]) {
-            return false
-        }
-    })
-    nullableEqualityKeys.forEach(key => {
-        if (eventDetails[key] && event[key] !== eventDetails[key]) {
-            if (key === 'selector') {
-                console.warn(`Selector "${event[key]}" does not exactly match "${eventDetails[key]}". Partial selector matches not yet implemented.`)
-            }
-            return false
-        }
-    })
+interface AutocaptureCriteria {
+    tag_name: string | null
+    text: string | null
+    href: string | null
+    selector: string | null
+}
+
+function elementsMatchAutocaptureCriteria(elements: ElementType[], criteria: AutocaptureCriteria) {
+    if (['tag_name', 'text', 'href', 'selector'].every(key => criteria[key] === null)) {
+        return true
+    }
+    if (criteria.tag_name) {
+        elements = elements.filter(element => element.tag_name === criteria.tag_name)
+        console.log(`Filtered elements by tag_name: ${JSON.stringify(elements)}`)
+    }
+    if (criteria.text) {
+        elements = elements.filter(element => element.text === criteria.text)
+        console.log(`Filtered elements by text: ${elements.toString()}`)
+    }
+    if (criteria.href) {
+        elements = elements.filter(element => element.href === criteria.href)
+        console.log(`Filtered elements by href: ${elements.toString()}`)
+    }
+    if (criteria.selector) {
+        console.warn('Partial selector matches not yet implemented.')
+        return false
+    }
+    return elements.length > 0
+}
+
+export function eventMatchesDefinition(event: EventType, eventDetails: ActionSingleEventDefinition['eventDetails']) {
+    if (event.event !== eventDetails.event){
+        return false
+    }
+    if (!elementsMatchAutocaptureCriteria(event.properties.elements, eventDetails)) {
+        return false
+    }
     if (eventDetails.url && eventDetails.url_matching) {
-        if (!matchValue(event.url, eventDetails.url, eventDetails.url_matching)) {
+        if (!matchValue(event.properties['$current_url'], eventDetails.url, eventDetails.url_matching)) {
             return false
         }
     }

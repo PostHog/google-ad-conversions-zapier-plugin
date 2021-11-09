@@ -1,5 +1,7 @@
 import { createEvent, createPageview } from '@posthog/plugin-scaffold/test/utils'
-import { matchValue, PropertyOperator, ActionStepUrlMatching } from '../index'
+import { matchValue, PropertyOperator, ActionStepUrlMatching, eventMatchesDefinition, ActionSingleEventDefinition } from '../index'
+import type { EventType } from '../index'
+
 
 describe('matchValue', () => {
     test('matchValue Exact', () => {
@@ -90,5 +92,168 @@ describe('matchValue', () => {
         expect(matchValue('null', null, PropertyOperator.IsNotSet)).toBe(false)
         expect(matchValue('', null, PropertyOperator.IsNotSet)).toBe(true)
         expect(matchValue(null, null, PropertyOperator.IsNotSet)).toBe(true)
+    })
+})
+
+function buildEvent(event: Partial<EventType>): EventType {
+    return {
+        elements: event.elements || [],
+        elements_hash: event.elements_hash || null,
+        id: event.id || 'some_id',
+        properties: event.properties || {},
+        timestamp: event.timestamp || Date.now().toString(),
+        person: event.person || null,
+        event: event.event || '$pageview',
+    }
+}
+
+function buildDefinition(details: Partial<ActionSingleEventDefinition['eventDetails']>, conversionName: string, actionId?: number): ActionSingleEventDefinition {
+    const defaultDetails: ActionSingleEventDefinition['eventDetails'] = {
+        id: 'some_id',
+        event: '$pageview',
+        tag_name: null,
+        text: null,
+        href: null,
+        selector: null,
+        url: null,
+        name: null,
+        url_matching: ActionStepUrlMatching.Exact,
+        properties: [],
+    }
+    const eventDetails = {
+        ...defaultDetails,
+        ...details,
+    }
+    return {
+        id: actionId ?? 0,
+        eventDetails,
+        conversionName: conversionName,
+    }
+}
+
+describe('eventMatchesDefinition - custom events', () => {
+    test('matches custom event', () => {
+        const event = buildEvent({
+            event: 'custom_event_name',
+        })
+        const { eventDetails } = buildDefinition({
+            event: 'custom_event_name',
+        }, 'some_conversion')
+        expect(eventMatchesDefinition(event, eventDetails)).toBe(true)
+    })
+    test('does not match event with different name', () => {
+        const event = buildEvent({
+            event: '$pageview',
+        })
+        const { eventDetails } = buildDefinition({
+            event: 'custom_event_name',
+        }, 'some_conversion')
+        expect(eventMatchesDefinition(event, eventDetails)).toBe(false)
+    })
+})
+
+describe('eventMatchesDefinition - autocapture', () => {
+    test('matches autocapture with tag_name and href', () => {
+        const event = buildEvent({
+            event: '$autocapture',
+            properties: {
+                elements: [
+                    {
+                        "text": "Heatmaps",
+                        "tag_name": "a",
+                        "href": "/docs/user-guides/toolbar",
+                    }
+                ]
+            },
+        })
+        const { eventDetails } = buildDefinition({
+            event: '$autocapture',
+            tag_name: 'a',
+            href: '/docs/user-guides/toolbar',
+        }, 'some_conversion')
+        expect(eventMatchesDefinition(event, eventDetails)).toBe(true)
+    })
+    test('does not match autocapture with wrong href', () => {
+        const event = buildEvent({
+            event: '$autocapture',
+            properties: {
+                elements: [
+                    {
+                        "tag_name": "a",
+                        "href": "/some-random-site",
+                    }
+                ]
+            },
+        })
+        const { eventDetails } = buildDefinition({
+            event: '$autocapture',
+            tag_name: 'a',
+            href: '/docs/user-guides/toolbar',
+        }, 'some_conversion')
+        expect(eventMatchesDefinition(event, eventDetails)).toBe(false)
+    })
+    test('does not match autocapture with wrong DOM tree', () => {
+        const event = buildEvent({
+            event: '$autocapture',
+            properties: {
+                elements: [
+                    {
+                        "tag_name": "span",
+                        "text": "some irrelevant text"
+                    },
+                    {
+                        "tag_name": "div",
+                    }
+                ]
+            },
+        })
+        const { eventDetails } = buildDefinition({
+            event: '$autocapture',
+            tag_name: 'a',
+            href: '/docs/user-guides/toolbar',
+        }, 'some_conversion')
+        expect(eventMatchesDefinition(event, eventDetails)).toBe(false)
+    })
+    test('matches autocapture with exact text match', () => {
+        const event = buildEvent({
+            event: '$autocapture',
+            properties: {
+                elements: [
+                    {
+                        "text": "Heatmaps",
+                        "tag_name": "a",
+                        "href": "/docs/user-guides/toolbar",
+                    }
+                ]
+            },
+        })
+        const { eventDetails } = buildDefinition({
+            event: '$autocapture',
+            text: 'Heatmaps',
+        }, 'some_conversion')
+        expect(eventMatchesDefinition(event, eventDetails)).toBe(true)
+    })
+    test('fails autocapture by selector', () => {
+        const event = buildEvent({
+            event: '$autocapture',
+            properties: {
+                elements: [
+                    {
+                        "text": "Heatmaps",
+                        "tag_name": "a",
+                        "href": "/docs/user-guides/toolbar",
+                    },
+                    {
+                        "tag_name": "div",
+                    }
+                ]
+            },
+        })
+        const { eventDetails } = buildDefinition({
+            event: '$autocapture',
+            href: '/docs/user-guides/toolbar',
+            selector: 'div > a',
+        }, 'some_conversion')
+        expect(eventMatchesDefinition(event, eventDetails)).toBe(false)
     })
 })
