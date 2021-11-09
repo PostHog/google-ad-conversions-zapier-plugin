@@ -2,7 +2,7 @@
     "name": "Google Ad Conversions Plugin (with Zapier)",
     "url": "https://github.com/PostHog/google-ad-conversions-zapier-plugin",
     "description": "Sends Google Ads conversion events to a Zapier webhook",
-    "main": "index.js",
+    "main": "index.ts",
     "posthogVersion": ">= 1.25.0",
     "config": [
         {
