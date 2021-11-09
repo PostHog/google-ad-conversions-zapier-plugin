@@ -1,18 +1,18 @@
 {
-    "name": "<TODO: your plugin name>",
-    "url": "<TODO: Your Plugin URL here>",
-    "description": "<TODO: Your Plugin description here>",
+    "name": "Google Ad Conversions Plugin (with Zapier)",
+    "url": "https://github.com/PostHog/google-ad-conversions-zapier-plugin",
+    "description": "Sends Google Ads conversion events to a Zapier webhook",
     "main": "index.js",
     "posthogVersion": ">= 1.25.0",
     "config": [
         {
-            "markdown": "<TODO: your plugin config, remove if none>"
+            "markdown": "Action map: Comma-separated list of action_id:Google conversion name. NOTE: Only specify actions which match *single events* and not event sequences."
         },
         {
-            "key": "greeting",
-            "name": "What greeting would you like to use?",
+            "key": "action_map",
+            "name": "Action map: (action_id:Google conversion name)",
             "type": "string",
-            "default": "Hello World!",
+            "default": "11036:Sign up - cloud,11037:Sign up - self-hosted free,11038:Sign up - self-hosted paid",
             "required": false
         }
     ]
