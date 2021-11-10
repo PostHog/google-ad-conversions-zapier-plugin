@@ -110,6 +110,9 @@ export type ActionSingleEventDefinition = {
 }
 
 export async function setupPlugin({ config, global }) {
+    if (!config.action_map || !config.zapier_webhook_url) {
+        throw new Error('Missing config values! Make sure to set action_map and zapier_webhook_url')
+    }
     const actionMap = config.action_map.split(',').map(entry => entry.split(':'))
     const actions: ActionType[] = await Promise.all(actionMap.map(([actionId]) => getActionDefinition(actionId)))
 
@@ -286,18 +289,24 @@ export function getConversionEventData(event: EventType, eventNames: string[], c
     return null
 }
 
-export async function exportEvents(events, { global }) {
+export async function exportEvents(events, { config, global }) {
     const { conversionDefinitions } = global
     const postHogEventNames = conversionDefinitions.map(({ eventDetails }) => eventDetails.event)
+    const conversions: ConversionEventData[] = []
     events.forEach(event => {
         const data = getConversionEventData(event, postHogEventNames, conversionDefinitions)
         if (data) {
-            // Send to Zapier
-            console.log({ event: event.event, data: JSON.stringify(data) })
+            conversions.push(data)
         }
     })
+    if (conversions.length) {
+        // Zapier accepts a single item or an array
+        await fetch(config.zapier_webhook_url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(conversions),
+        })
+    }
 }
-
-// async function uploadConversion(gclid) {
-
-// }
