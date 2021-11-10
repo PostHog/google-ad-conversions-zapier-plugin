@@ -94,14 +94,14 @@ export interface ActionStepType {
 export type ActionSingleEventDefinition = {
     id: number
     eventDetails: {
-        id: string,
-        event: string,
+        id?: number | string,
+        event?: string,
         tag_name: string | null,
         text: string | null,
         href: string | null,
         selector: string | null,
-        url: string | null,
         name: string | null,
+        url: string | null,
         url_matching: ActionStepUrlMatching | null,
         properties: AnyPropertyFilter[] | null,
     }
@@ -112,12 +112,22 @@ export async function setupPlugin({ config, global }) {
     const actionMap = config.action_map.split(',').map(entry => entry.split(':'))
     const actions: ActionType[] = await Promise.all(actionMap.map(([actionId]) => getActionDefinition(actionId)))
 
-    const conversionDefinitions = []
+    const conversionDefinitions: ActionSingleEventDefinition[] = []
     actionMap.forEach(([, conversionName], index) => {
         const action = actions[index]
         conversionDefinitions.push({
             id: action.id,
-            eventDetails: action.steps[0],
+            eventDetails: {
+                tag_name: null,
+                text: null,
+                href: null,
+                selector: null,
+                name: null,
+                url: null,
+                url_matching: null,
+                properties: [],
+                ...(action.steps[0] || {}),
+            },
             conversionName,
         })
     })
@@ -137,19 +147,6 @@ async function getActionDefinition(actionId): Promise<ActionType> {
         throw new Error(`Action ${actionId} should have no more than 1 step (found ${body.steps?.length ?? 0})`)
     }
     return body
-}
-
-export function getConversionEvent(event, eventNames, conversionDefinitions) {
-    if (!event.properties.gclid || !eventNames.length || !conversionDefinitions.length) {
-        return null
-    }
-    if (!eventNames.includes(event.event)) {
-        return null
-    }
-    const conversion = conversionDefinitions.find(({ eventDetails }) =>
-        eventMatchesDefinition(event, eventDetails)
-    )
-    return conversion?.conversionName
 }
 
 interface AutocaptureCriteria {
@@ -177,6 +174,40 @@ function elementsMatchAutocaptureCriteria(elements: ElementType[], criteria: Aut
         return false
     }
     return elements.length > 0
+}
+
+export function matchValue(needle, haystack, operator: PropertyOperator | ActionStepUrlMatching): boolean {
+    const REGEX_WARNING = 'Regex matching with NodeJS library, while action matching usually uses Postgres regex.'
+    switch (operator) {
+        case PropertyOperator.Exact:
+        case ActionStepUrlMatching.Exact:
+            return needle === haystack
+        case PropertyOperator.IsNot:
+            return needle !== haystack
+        case ActionStepUrlMatching.Contains:
+            return haystack.includes(needle)
+        case PropertyOperator.IContains:
+            return haystack.toLowerCase().includes(needle.toLowerCase())
+        case PropertyOperator.NotIContains:
+            return !haystack.toLowerCase().includes(needle.toLowerCase())
+        case PropertyOperator.Regex:
+        case ActionStepUrlMatching.Regex:
+            console.warn(REGEX_WARNING)
+            return new RegExp(needle).test(haystack)
+        case PropertyOperator.NotRegex:
+            console.warn(REGEX_WARNING)
+            return !(new RegExp(needle).test(haystack))
+        case PropertyOperator.GreaterThan:
+            return haystack > needle
+        case PropertyOperator.LessThan:
+            return haystack < needle
+        case PropertyOperator.IsSet:
+            return needle === 0 || needle === false || !!needle
+        case PropertyOperator.IsNotSet:
+            return needle === null || needle === ''
+        default:
+            return false
+    }
 }
 
 export function eventMatchesDefinition(event: EventType, eventDetails: ActionSingleEventDefinition['eventDetails']) {
@@ -214,44 +245,46 @@ export function eventMatchesDefinition(event: EventType, eventDetails: ActionSin
     return true
 }
 
-export function matchValue(needle, haystack, operator: PropertyOperator | ActionStepUrlMatching): boolean {
-    const REGEX_WARNING = 'Regex matching with NodeJS library, while action matching usually uses Postgres regex.'
-    switch (operator) {
-        case PropertyOperator.Exact:
-        case ActionStepUrlMatching.Exact:
-            return needle === haystack
-        case PropertyOperator.IsNot:
-            return needle !== haystack
-        case ActionStepUrlMatching.Contains:
-            return haystack.includes(needle)
-        case PropertyOperator.IContains:
-            return haystack.toLowerCase().includes(needle.toLowerCase())
-        case PropertyOperator.NotIContains:
-            return !haystack.toLowerCase().includes(needle.toLowerCase())
-        case PropertyOperator.Regex:
-        case ActionStepUrlMatching.Regex:
-            console.warn(REGEX_WARNING)
-            return new RegExp(needle).test(haystack)
-        case PropertyOperator.NotRegex:
-            console.warn(REGEX_WARNING)
-            return !(new RegExp(needle).test(haystack))
-        case PropertyOperator.GreaterThan:
-            return haystack > needle
-        case PropertyOperator.LessThan:
-            return haystack < needle
-        case PropertyOperator.IsSet:
-            return needle === 0 || needle === false || !!needle
-        case PropertyOperator.IsNotSet:
-            return needle === null || needle === ''
-        default:
-            return false
+export function formatTimestampForGoogle(date: string){
+    if (date.match(/Z$/)) {
+        return date.replace(/Z$/, '+0000')
     }
+    if (date.match(/\+00:00$/)) {
+        return date.replace(/\+00:00$/, '+0000')
+    }
+    return date
 }
 
-export async function exportEvents(events, { config, global }) {
+type ConversionEventData = {
+    gclid: string
+    conversionName: string
+    timestamp: string
+}
+
+export function getConversionEventData(event: EventType, eventNames: string[], conversionDefinitions: ActionSingleEventDefinition[]): ConversionEventData | null {
+    if (!event.properties.gclid || !eventNames.length || !conversionDefinitions.length) {
+        return null
+    }
+    if (!eventNames.includes(event.event)) {
+        return null
+    }
+    const conversion = conversionDefinitions.find(({ eventDetails }) =>
+        eventMatchesDefinition(event, eventDetails)
+    )
+    if (conversion) {
+        return {
+            gclid: event.properties.gclid,
+            conversionName: conversion.conversionName,
+            timestamp: formatTimestampForGoogle(event.timestamp),
+        }
+    }
+    return null
+}
+
+export async function exportEvents(events, { global }) {
     const { conversionDefinitions } = global
     const postHogEventNames = conversionDefinitions.map(({ eventDetails }) => eventDetails.event)
-    events.forEach(event => getConversionEvent(event, postHogEventNames, conversionDefinitions))
+    events.forEach(event => console.log(JSON.stringify(getConversionEventData(event, postHogEventNames, conversionDefinitions))))
 }
 
 // async function uploadConversion(gclid) {

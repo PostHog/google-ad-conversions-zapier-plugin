@@ -1,6 +1,12 @@
-import { createEvent, createPageview } from '@posthog/plugin-scaffold/test/utils'
-import { matchValue, PropertyOperator, ActionStepUrlMatching, eventMatchesDefinition, ActionSingleEventDefinition } from '../index'
-import type { EventType } from '../index'
+import {
+    matchValue,
+    PropertyOperator,
+    ActionStepUrlMatching,
+    eventMatchesDefinition,
+    formatTimestampForGoogle,
+    getConversionEventData,
+} from '../index'
+import type { EventType, ActionSingleEventDefinition} from '../index'
 
 
 describe('matchValue', () => {
@@ -392,5 +398,93 @@ describe('eventMatchesDefinition - properties', () => {
             ]
         }, 'some_conversion')
         expect(eventMatchesDefinition(event, eventDetails)).toBe(true)
+    })
+})
+
+describe('formatTimestampForGoogle', () => {
+    test('formats timestamp +00:00 -> +0000', () => {
+        const timestamp = formatTimestampForGoogle('2021-11-09T21:58:36.973000+00:00')
+        expect(timestamp).toBe('2021-11-09T21:58:36.973000+0000')
+    })
+    test('formats timestamp Z -> +0000', () => {
+        const timestamp = formatTimestampForGoogle('2021-11-09T21:58:36.973Z')
+        expect(timestamp).toBe('2021-11-09T21:58:36.973+0000')
+    })
+    test('passes unknown format through without modification', () => {
+        const timestamp = formatTimestampForGoogle('2021-11-09')
+        expect(timestamp).toBe('2021-11-09')
+    })
+})
+
+describe('getConversionEventData', () => {
+    test('returns data for pageview with gclid', () => {
+        const testDate = new Date('2021-11-09').toISOString()
+        const event = buildEvent({
+            event: '$pageview',
+            properties: {
+                gclid: 'abcdef0123456',
+                $current_url: 'https://www.example.com/some-page',
+            },
+            timestamp: testDate,
+        })
+        const definition = buildDefinition({
+            event: '$pageview',
+            url: '/some-page',
+            url_matching: 'contains' as ActionStepUrlMatching.Contains,
+        }, 'some_conversion')
+        const data = getConversionEventData(event, ['$pageview'], [definition])
+        expect(data).toEqual({
+            gclid: 'abcdef0123456',
+            conversionName: 'some_conversion',
+            timestamp: formatTimestampForGoogle(testDate),
+        })
+    })
+    test('returns null if gclid not set', () => {
+        const testDate = new Date('2021-11-09').toISOString()
+        const event = buildEvent({
+            event: '$pageview',
+            properties: {
+                $current_url: 'https://www.example.com/some-page',
+            },
+            timestamp: testDate,
+        })
+        const definition = buildDefinition({
+            event: '$pageview',
+            url: '/some-page',
+            url_matching: 'contains' as ActionStepUrlMatching.Contains,
+        }, 'some_conversion')
+        const data = getConversionEventData(event, ['$pageview'], [definition])
+        expect(data).toBeNull()
+    })
+    test('returns data for autocapture with gclid', () => {
+        const testDate = new Date('2021-11-09').toISOString()
+        const event = buildEvent({
+            event: '$autocapture',
+            properties: {
+                gclid: 'abcdef0123456',
+                $current_url: 'https://www.example.com/some-page',
+                elements: [
+                    {
+                        "text": "Heatmaps",
+                        "tag_name": "a",
+                        "href": "/docs/user-guides/toolbar",
+                    }
+                ],
+            },
+            timestamp: testDate,
+        })
+        const definition = buildDefinition({
+            event: '$autocapture',
+            url: '/some-page',
+            url_matching: 'contains' as ActionStepUrlMatching.Contains,
+            text: 'Heatmaps',
+            tag_name: 'a',
+        }, 'some_conversion')
+        const data = getConversionEventData(event, ['$autocapture'], [definition])
+        expect(data).toEqual({
+            gclid: 'abcdef0123456',
+            conversionName: 'some_conversion',
+            timestamp: formatTimestampForGoogle(testDate),
+        })
     })
 })
