@@ -160,10 +160,12 @@ interface AutocaptureCriteria {
     selector: string | null
 }
 
+function shouldCheckForAutocapture(criteria: AutocaptureCriteria) {
+    // If any of the criteria is set, we should check for autocapture
+    return !['tag_name', 'text', 'href', 'selector'].every(key => criteria[key] === null)
+}
+
 function elementsMatchAutocaptureCriteria(elements: ElementType[], criteria: AutocaptureCriteria) {
-    if (['tag_name', 'text', 'href', 'selector'].every(key => criteria[key] === null)) {
-        return true
-    }
     if (criteria.tag_name) {
         elements = elements.filter(element => element.tag_name === criteria.tag_name)
     }
@@ -218,7 +220,7 @@ export function eventMatchesDefinition(event: EventType, eventDetails: ActionSin
     if (event.event !== eventDetails.event){
         return false
     }
-    if (!elementsMatchAutocaptureCriteria(event.properties.elements, eventDetails)) {
+    if (shouldCheckForAutocapture(eventDetails) && !elementsMatchAutocaptureCriteria(event.properties.elements, eventDetails)) {
         return false
     }
     if (eventDetails.url && eventDetails.url_matching) {
@@ -228,6 +230,9 @@ export function eventMatchesDefinition(event: EventType, eventDetails: ActionSin
     }
     if (eventDetails.properties.length) {
         let propertyMatchResults: boolean[] = []
+        if (eventDetails.properties.length > event.properties.length) {
+            return false
+        }
         eventDetails.properties.forEach(({ key, type, value, operator }) => {
             if (type !== 'event') {
                 throw new Error('Only event properties are supported at this time')
