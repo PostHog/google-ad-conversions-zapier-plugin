@@ -165,15 +165,12 @@ function elementsMatchAutocaptureCriteria(elements: ElementType[], criteria: Aut
     }
     if (criteria.tag_name) {
         elements = elements.filter(element => element.tag_name === criteria.tag_name)
-        console.log(`Filtered elements by tag_name: ${JSON.stringify(elements)}`)
     }
     if (criteria.text) {
         elements = elements.filter(element => element.text === criteria.text)
-        console.log(`Filtered elements by text: ${elements.toString()}`)
     }
     if (criteria.href) {
         elements = elements.filter(element => element.href === criteria.href)
-        console.log(`Filtered elements by href: ${elements.toString()}`)
     }
     if (criteria.selector) {
         console.warn('Partial selector matches not yet implemented.')
@@ -190,7 +187,7 @@ export function eventMatchesDefinition(event: EventType, eventDetails: ActionSin
         return false
     }
     if (eventDetails.url && eventDetails.url_matching) {
-        if (!matchValue(event.properties['$current_url'], eventDetails.url, eventDetails.url_matching)) {
+        if (!matchValue(eventDetails.url, event.properties['$current_url'], eventDetails.url_matching)) {
             return false
         }
     }

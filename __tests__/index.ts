@@ -131,7 +131,16 @@ function buildDefinition(details: Partial<ActionSingleEventDefinition['eventDeta
     }
 }
 
-describe('eventMatchesDefinition - custom events', () => {
+describe('eventMatchesDefinition - pageview and custom events', () => {
+    test('matches pageview', () => {
+        const event = buildEvent({
+            event: '$pageview',
+        })
+        const { eventDetails } = buildDefinition({
+            event: '$pageview',
+        }, 'some_conversion')
+        expect(eventMatchesDefinition(event, eventDetails)).toBe(true)
+    })
     test('matches custom event', () => {
         const event = buildEvent({
             event: 'custom_event_name',
@@ -255,5 +264,133 @@ describe('eventMatchesDefinition - autocapture', () => {
             selector: 'div > a',
         }, 'some_conversion')
         expect(eventMatchesDefinition(event, eventDetails)).toBe(false)
+    })
+})
+
+describe('eventMatchesDefinition - url_matching', () => {
+    test('matches $current_url with exact', () => {
+        const event = buildEvent({
+        event: 'custom_event_name',
+            properties: {
+                $current_url: 'https://www.example.com/some-page',
+            },
+        })
+        const { eventDetails } = buildDefinition({
+            event: 'custom_event_name',
+            url: 'https://www.example.com/some-page',
+            url_matching: 'exact' as ActionStepUrlMatching.Exact,
+        }, 'some_conversion')
+        expect(eventMatchesDefinition(event, eventDetails)).toBe(true)
+    })
+    test('matches $current_url with contains', () => {
+        const event = buildEvent({
+        event: 'custom_event_name',
+            properties: {
+                $current_url: 'https://www.example.com/some-page',
+            },
+        })
+        const { eventDetails } = buildDefinition({
+            event: 'custom_event_name',
+            url: '/some-page',
+            url_matching: 'contains' as ActionStepUrlMatching.Contains,
+        }, 'some_conversion')
+        expect(eventMatchesDefinition(event, eventDetails)).toBe(true)
+    })
+    test('matches $current_url with regex', () => {
+        const event = buildEvent({
+        event: 'custom_event_name',
+            properties: {
+                $current_url: 'https://www.example.com/some-page',
+            },
+        })
+        const { eventDetails } = buildDefinition({
+            event: 'custom_event_name',
+            url: 'https?:\/\/(w)+',
+            url_matching: 'regex' as ActionStepUrlMatching.Regex,
+        }, 'some_conversion')
+        expect(eventMatchesDefinition(event, eventDetails)).toBe(true)
+    })
+})
+
+describe('eventMatchesDefinition - properties', () => {
+    test('matches on custom_property', () => {
+        const event = buildEvent({
+            event: 'custom_event_name',
+            properties: {
+                custom_property: 'https://www.example.com/some-page',
+            },
+        })
+        const { eventDetails } = buildDefinition({
+            event: 'custom_event_name',
+            properties: [
+                {
+                    key: 'custom_property',
+                    operator: 'exact' as PropertyOperator.Exact,
+                    type: 'event',
+                    value: 'https://www.example.com/some-page',
+                }
+            ]
+        }, 'some_conversion')
+        expect(eventMatchesDefinition(event, eventDetails)).toBe(true)
+    })
+    test('does not match on custom_property with wrong value', () => {
+        const event = buildEvent({
+            event: 'custom_event_name',
+            properties: {
+                custom_property: 'https://www.example.com/some-page',
+            },
+        })
+        const { eventDetails } = buildDefinition({
+            event: 'custom_event_name',
+            properties: [
+                {
+                    key: 'custom_property',
+                    operator: 'exact' as PropertyOperator.Exact,
+                    type: 'event',
+                    value: 'https://www.example.com/page-2',
+                }
+            ]
+        }, 'some_conversion')
+        expect(eventMatchesDefinition(event, eventDetails)).toBe(false)
+    })
+    test('matches on custom_property with icontains operator', () => {
+        const event = buildEvent({
+            event: 'custom_event_name',
+            properties: {
+                custom_property: 'https://www.example.com/some-page',
+            },
+        })
+        const { eventDetails } = buildDefinition({
+            event: 'custom_event_name',
+            properties: [
+                {
+                    key: 'custom_property',
+                    operator: 'icontains' as PropertyOperator.IContains,
+                    type: 'event',
+                    value: '/some-page',
+                }
+            ]
+        }, 'some_conversion')
+        expect(eventMatchesDefinition(event, eventDetails)).toBe(true)
+    }),
+    test('matches on custom_property with icontains as array operator', () => {
+        const event = buildEvent({
+            event: 'custom_event_name',
+            properties: {
+                custom_property: 'https://www.example.com/some-page',
+            },
+        })
+        const { eventDetails } = buildDefinition({
+            event: 'custom_event_name',
+            properties: [
+                {
+                    key: 'custom_property',
+                    operator: 'icontains' as PropertyOperator.IContains,
+                    type: 'event',
+                    value: ['/some-page', '/another-page'],
+                }
+            ]
+        }, 'some_conversion')
+        expect(eventMatchesDefinition(event, eventDetails)).toBe(true)
     })
 })
