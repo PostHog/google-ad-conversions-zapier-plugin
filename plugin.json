@@ -6,7 +6,7 @@
     "posthogVersion": ">= 1.25.0",
     "config": [
         {
-            "markdown": "Action map: Comma-separated list of action_id:Google conversion name. NOTE: Only specify actions which match *single events* and not event sequences.\n\nZapier webhook URL: Full URL of the webhook, e.g. `https://hooks.zapier.com/hooks/catch/0123456/abcdef/`"
+            "markdown": "Action map: Comma-separated list of action_id:Google conversion name. NOTE: Only specify actions which match *single events* and not event sequences.\n\nZapier webhook URL: Full URL of the webhook, e.g. `https://hooks.zapier.com/hooks/catch/0123456/abcdef/`\n\nPostHog Host: PostHog Host URL from which to fetch action definitions (in testing, set to `http://localhost:8000`"
         },
         {
             "key": "action_map",
@@ -16,11 +16,16 @@
             "required": true
         },
         {
+            "key": "host",
+            "name": "PostHog Host",
+            "type": "string",
+            "required": false
+        },
+        {
             "key": "zapier_webhook_url",
             "name": "Zapier webhook URL",
             "type": "string",
-            "default": "",
             "required": true
-        }
+        },
     ]
 }

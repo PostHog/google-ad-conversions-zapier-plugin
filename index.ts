@@ -114,7 +114,7 @@ export async function setupPlugin({ config, global }) {
         throw new Error('Missing config values! Make sure to set action_map and zapier_webhook_url')
     }
     const actionMap = config.action_map.split(',').map(entry => entry.split(':'))
-    const actions: ActionType[] = await Promise.all(actionMap.map(([actionId]) => getActionDefinition(actionId)))
+    const actions: ActionType[] = await Promise.all(actionMap.map(([actionId]) => getActionDefinition(actionId, config.host)))
 
     const conversionDefinitions: ActionSingleEventDefinition[] = []
     actionMap.forEach(([, conversionName], index) => {
@@ -139,9 +139,9 @@ export async function setupPlugin({ config, global }) {
     global.conversionDefinitions = conversionDefinitions
 }
 
-async function getActionDefinition(actionId): Promise<ActionType> {
+async function getActionDefinition(actionId: string, host?: string): Promise<ActionType> {
     const response = await posthog.api.get(`/api/projects/@current/actions/${actionId}/`, {
-        host: 'http://localhost:8000',
+        host
     })
     const body = await response.json()
     if (response.status !== 200) {
