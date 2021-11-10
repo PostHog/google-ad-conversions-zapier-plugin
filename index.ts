@@ -266,16 +266,17 @@ type ConversionEventData = {
 }
 
 export function getConversionEventData(event: EventType, eventNames: string[], conversionDefinitions: ActionSingleEventDefinition[]): ConversionEventData | null {
-    if (!event.properties.gclid || !eventNames.length || !conversionDefinitions.length) {
-        return null
-    }
-    if (!eventNames.includes(event.event)) {
+    if (!eventNames.length || !conversionDefinitions.length || !eventNames.includes(event.event)) {
         return null
     }
     const conversion = conversionDefinitions.find(({ eventDetails }) =>
         eventMatchesDefinition(event, eventDetails)
     )
     if (conversion) {
+        if (!event.properties.gclid) {
+            console.log(`Conversion "${conversion.conversionName}" triggered for distinct_id "${event.properties.distinct_id}", but no gclid found`)
+            return null
+        }
         return {
             gclid: event.properties.gclid,
             conversionName: conversion.conversionName,
