@@ -26,7 +26,8 @@ export interface EventType {
     elements_hash: string | null
     id: number | string
     properties: Record<string, any>
-    timestamp: string
+    timestamp?: string
+    sent_at?: string
     person?: null
     event: string
 }
@@ -246,11 +247,14 @@ export function eventMatchesDefinition(event: EventType, eventDetails: ActionSin
 }
 
 export function formatTimestampForGoogle(date: string){
-    if (date.match(/Z$/)) {
+    if (date?.match(/Z$/)) {
         return date.replace(/Z$/, '+0000')
     }
-    if (date.match(/\+00:00$/)) {
+    if (date?.match(/\+00:00$/)) {
         return date.replace(/\+00:00$/, '+0000')
+    }
+    if (date?.match(/\+00$/)) {
+        return date.replace(/\+00$/, '+0000')
     }
     return date
 }
@@ -275,7 +279,7 @@ export function getConversionEventData(event: EventType, eventNames: string[], c
         return {
             gclid: event.properties.gclid,
             conversionName: conversion.conversionName,
-            timestamp: formatTimestampForGoogle(event.timestamp),
+            timestamp: formatTimestampForGoogle(event.sent_at || event.timestamp || new Date().toISOString()),
         }
     }
     return null
@@ -284,7 +288,13 @@ export function getConversionEventData(event: EventType, eventNames: string[], c
 export async function exportEvents(events, { global }) {
     const { conversionDefinitions } = global
     const postHogEventNames = conversionDefinitions.map(({ eventDetails }) => eventDetails.event)
-    events.forEach(event => console.log(JSON.stringify(getConversionEventData(event, postHogEventNames, conversionDefinitions))))
+    events.forEach(event => {
+        const data = getConversionEventData(event, postHogEventNames, conversionDefinitions)
+        if (data) {
+            // Send to Zapier
+            console.log({ event: event.event, data: JSON.stringify(data) })
+        }
+    })
 }
 
 // async function uploadConversion(gclid) {
