@@ -16,16 +16,16 @@
             "required": true
         },
         {
-            "key": "host",
-            "name": "PostHog Host",
-            "type": "string",
-            "required": false
-        },
-        {
             "key": "zapier_webhook_url",
             "name": "Zapier webhook URL",
             "type": "string",
             "required": true
         },
+        {
+            "key": "host",
+            "name": "PostHog Host",
+            "type": "string",
+            "required": false
+        }
     ]
 }
