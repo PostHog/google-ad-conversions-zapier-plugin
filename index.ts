@@ -119,7 +119,7 @@ export async function setupPlugin({ config, global }) {
     const conversionDefinitions: ActionSingleEventDefinition[] = []
     actionMap.forEach(([, conversionName], index) => {
         const action = actions[index]
-        conversionDefinitions.push({
+        conversionDefinitions.push(...action.steps.map(step => ({
             id: action.id,
             eventDetails: {
                 tag_name: null,
@@ -130,10 +130,10 @@ export async function setupPlugin({ config, global }) {
                 url: null,
                 url_matching: null,
                 properties: [],
-                ...(action.steps[0] || {}),
+                ...step,
             },
             conversionName,
-        })
+        })))
     })
 
     global.conversionDefinitions = conversionDefinitions

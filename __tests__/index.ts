@@ -406,6 +406,10 @@ describe('formatTimestampForGoogle', () => {
         const timestamp = formatTimestampForGoogle('2021-11-09T21:58:36.973000+00:00')
         expect(timestamp).toBe('2021-11-09T21:58:36.973000+0000')
     })
+    test('formats timestamp +00 -> +0000', () => {
+        const timestamp = formatTimestampForGoogle('2021-11-09T21:58:36.973000+00')
+        expect(timestamp).toBe('2021-11-09T21:58:36.973000+0000')
+    })
     test('formats timestamp Z -> +0000', () => {
         const timestamp = formatTimestampForGoogle('2021-11-09T21:58:36.973Z')
         expect(timestamp).toBe('2021-11-09T21:58:36.973+0000')
@@ -433,6 +437,35 @@ describe('getConversionEventData', () => {
             url_matching: 'contains' as ActionStepUrlMatching.Contains,
         }, 'some_conversion')
         const data = getConversionEventData(event, ['$pageview'], [definition])
+        expect(data).toEqual({
+            gclid: 'abcdef0123456',
+            conversionName: 'some_conversion',
+            timestamp: formatTimestampForGoogle(testDate),
+        })
+    })
+    test('returns data when given multiple definitions', () => {
+        const testDate = new Date('2021-11-09').toISOString()
+        const event = buildEvent({
+            event: '$pageview',
+            properties: {
+                gclid: 'abcdef0123456',
+                $current_url: 'https://www.example.com/some-page',
+            },
+            timestamp: testDate,
+        })
+        const definitionsFromActionSteps = [
+            buildDefinition({
+                event: '$pageview',
+                url: '/some-other-page',
+                url_matching: 'contains' as ActionStepUrlMatching.Contains,
+            }, 'some_conversion'),
+            buildDefinition({
+                event: '$pageview',
+                url: '/some-page',
+                url_matching: 'contains' as ActionStepUrlMatching.Contains,
+            }, 'some_conversion')
+        ]
+        const data = getConversionEventData(event, ['$pageview'], definitionsFromActionSteps)
         expect(data).toEqual({
             gclid: 'abcdef0123456',
             conversionName: 'some_conversion',
