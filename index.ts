@@ -114,43 +114,8 @@ export async function setupPlugin({ config, global }) {
         throw new Error('Missing config values! Make sure to set action_map and zapier_webhook_url')
     }
     const actionMap = config.action_map.split(',').map(entry => entry.split(':'))
-    const actions: ActionType[] = await Promise.all(actionMap.map(([actionId]) => getActionDefinition(actionId, config.host)))
-
-    const conversionDefinitions: ActionSingleEventDefinition[] = []
-    actionMap.forEach(([, conversionName], index) => {
-        const action = actions[index]
-        conversionDefinitions.push(...action.steps.map(step => ({
-            id: action.id,
-            eventDetails: {
-                tag_name: null,
-                text: null,
-                href: null,
-                selector: null,
-                name: null,
-                url: null,
-                url_matching: null,
-                properties: [],
-                ...step,
-            },
-            conversionName,
-        })))
-    })
-
-    global.conversionDefinitions = conversionDefinitions
-}
-
-async function getActionDefinition(actionId: string, host?: string): Promise<ActionType> {
-    const response = await posthog.api.get(`/api/projects/@current/actions/${actionId}/`, {
-        host
-    })
-    const body = await response.json()
-    if (response.status !== 200) {
-        throw new Error(`Failed to get action definition for ${actionId}: ${body.detail}`)
-    }
-    if (!body.steps || body.steps.length !== 1) {
-        throw new Error(`Action ${actionId} should have no more than 1 step (found ${body.steps?.length ?? 0})`)
-    }
-    return body
+    global.actionMap = actionMap
+    global.conversionDefinitions = []
 }
 
 interface AutocaptureCriteria {
@@ -294,7 +259,59 @@ export function getConversionEventData(event: EventType, eventNames: string[], c
     return null
 }
 
-export async function exportEvents(events, { config, global }) {
+async function getActionDefinition(actionId: string, host?: string): Promise<ActionType> {
+    const response = await posthog.api.get(`/api/projects/2/actions/${actionId}/`, {
+        host
+    })
+    const body = await response.json()
+    if (response.status !== 200) {
+        throw new Error(`Failed to get action definition for ${actionId}: ${body.detail}`)
+    }
+    return body
+}
+
+async function getConversionDefinitions(actionMap, host?: string): Promise<ActionSingleEventDefinition[]> {
+    const actions: ActionType[] = await Promise.all(actionMap.map(([actionId]) => getActionDefinition(actionId, host)))
+
+    const conversionDefinitions: ActionSingleEventDefinition[] = []
+    actionMap.forEach(([, conversionName], index) => {
+        const action = actions[index]
+        conversionDefinitions.push(...action.steps.map(step => ({
+            id: action.id,
+            eventDetails: {
+                tag_name: null,
+                text: null,
+                href: null,
+                selector: null,
+                name: null,
+                url: null,
+                url_matching: null,
+                properties: [],
+                ...step,
+            },
+            conversionName,
+        })))
+    })
+
+    return conversionDefinitions
+}
+
+export async function exportEvents(events, { cache, config, global }) {
+    console.log('Exporting events...', new Date().toString(), await cache.get('definitionsCached'))
+    if (!(await cache.get('definitionsCached'))) {
+        console.log('Fetching conversion definitions...', new Date().toString())
+        try {
+            const definitions = await getConversionDefinitions(global.actionMap, config.host)
+            if (definitions.length) {
+                global.conversionDefinitions = definitions
+            }
+        } catch (err) {
+            console.error('Failed to get conversion definitions', err)
+        } finally {
+            // Don't refetch definitions for at least 60 seconds
+            await cache.set('definitionsCached', true, 60)
+        }
+    }
     const { conversionDefinitions } = global
     const postHogEventNames = conversionDefinitions.map(({ eventDetails }) => eventDetails.event)
     const conversions: ConversionEventData[] = []
