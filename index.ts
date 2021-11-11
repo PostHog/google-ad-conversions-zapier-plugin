@@ -260,7 +260,7 @@ export function getConversionEventData(event: EventType, eventNames: string[], c
 }
 
 async function getActionDefinition(actionId: string, host?: string): Promise<ActionType> {
-    const response = await posthog.api.get(`/api/projects/2/actions/${actionId}/`, {
+    const response = await posthog.api.get(`/api/projects/@current/actions/${actionId}/`, {
         host
     })
     const body = await response.json()
