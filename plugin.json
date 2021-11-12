@@ -6,19 +6,20 @@
     "posthogVersion": ">= 1.25.0",
     "config": [
         {
-            "markdown": "Zapier webhook URL: Full URL of the webhook, e.g. `https://hooks.zapier.com/hooks/catch/0123456/abcdef/`\n\nPostHog Host: PostHog Host URL from which to fetch action definitions (in testing, set to `http://localhost:8000`"
+            "markdown": "Conversion definitions (JSON): See `conversion_definitions.example.json` in the plugin repository. Zapier webhook URL: Full URL of the webhook, e.g. `https://hooks.zapier.com/hooks/catch/0123456/abcdef/`"
+        },
+        {
+            "key": "conversion_definitions",
+            "name": "Conversion definitions (JSON)",
+            "type": "string",
+            "required": true,
+            "default": "[{\"conversionName\":\"Sign up - self-hosted paid\",\"eventDetails\":{\"event\":\"$autocapture\",\"text\":\"verify card\",\"href\":null,\"url\":\"https://license.posthog.com/\",\"url_matching\":\"contains\"}},{\"conversionName\":\"Sign up - self-hosted free\",\"eventDetails\":{\"event\":\"$pageview\",\"text\":null,\"href\":null,\"url\":\"https://posthog.com/signup/self-host/deploy\",\"url_matching\":\"contains\"}},{\"conversionName\":\"Sign up - self-hosted free\",\"eventDetails\":{\"event\":\"$pageview\",\"text\":\"posthog cloud\",\"href\":null,\"url\":\"https://app.posthog.com/signup\",\"url_matching\":\"contains\"}}]"
         },
         {
             "key": "zapier_webhook_url",
             "name": "Zapier webhook URL",
             "type": "string",
             "required": true
-        },
-        {
-            "key": "host",
-            "name": "PostHog Host",
-            "type": "string",
-            "required": false
         }
     ]
 }
