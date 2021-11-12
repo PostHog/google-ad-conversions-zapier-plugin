@@ -92,63 +92,60 @@ export interface ActionStepType {
 
 export type ConversionDefinition = {
     eventDetails: {
-        event?: string,
-        text: string | null,
-        href: string | null,
-        url: string | null,
-        url_matching: ActionStepUrlMatching | null,
+        event: string,
+        text?: string | null,
+        href?: string | null,
+        url?: string | null,
+        url_matching?: ActionStepUrlMatching | null,
     }
     conversionName: string
 }
 
-const CONVERSION_DEFS: ConversionDefinition[] = [
-    {
-        conversionName: 'Sign up - self-hosted paid',
-        eventDetails: {
-            event: '$autocapture',
-            text: 'verify card',
-            href: null,
-            url: 'https://license.posthog.com/',
-            url_matching: ActionStepUrlMatching.Contains,
-        }
-    },
-    {
-        conversionName:  'Sign up - self-hosted free',
-        eventDetails: {
-            event: '$pageview',
-            text: null,
-            href: null,
-            url: 'https://posthog.com/signup/self-host/deploy',
-            url_matching: ActionStepUrlMatching.Contains,
-        }
-    },
-    {
-        conversionName:  'Sign up - self-hosted free',
-        eventDetails: {
-            event: '$pageview',
-            text: 'posthog cloud',
-            href: null,
-            url: 'https://app.posthog.com/signup',
-            url_matching: ActionStepUrlMatching.Contains,
-        },
-    },
-]
+function isValidConversionDefinition(input: any): input is ConversionDefinition {
+    if (!input.conversionName) {
+        return false
+    }
+    if (!input.eventDetails?.event) {
+        return false
+    }
+    if (input.eventDetails?.url && !input.eventDetails?.url_matching) {
+        console.error('Definition must specify url_matching if eventDetails.url is set. Possible options: contains, regex, exact')
+        return false
+    }
+    return true
+}
+
+function validateConversionDefinitions(input: any[]): input is ConversionDefinition[] {
+    if (!input.length) {
+        return false
+    }
+    return input.every(isValidConversionDefinition)
+}
 
 export async function setupPlugin({ config, global }) {
-    if (!config.zapier_webhook_url) {
-        throw new Error('Missing config values! Make sure to set zapier_webhook_url')
+    if (!config.conversion_definitions || !config.zapier_webhook_url) {
+        throw new Error('Missing config values! Make sure to set conversion_definitions and zapier_webhook_url')
     }
-    global.conversionDefinitions = CONVERSION_DEFS
+    let conversionDefinitions: ConversionDefinition[] = []
+    try {
+        conversionDefinitions = JSON.parse(config.conversion_definitions)
+    } catch (error) {
+        throw new Error('conversion_definitions is not valid JSON')
+    }
+    if (!validateConversionDefinitions(conversionDefinitions)) {
+        throw new Error('conversion_definitions does not match the required input type')
+    }
+    global.conversionDefinitions = conversionDefinitions
 }
 
 interface AutocaptureCriteria {
-    text: string | null
-    href: string | null
+    text?: string | null
+    href?: string | null
 }
 
 function shouldCheckForAutocapture(criteria: AutocaptureCriteria) {
     // If any of the criteria is set, we should check for autocapture
-    return !['text', 'href'].every(key => criteria[key] === null)
+    return criteria.text || criteria.href
 }
 
 function elementsMatchAutocaptureCriteria(criteria: AutocaptureCriteria, elements?: ElementType[]) {
@@ -263,6 +260,7 @@ export async function exportEvents(events, { config, global }) {
         }
     })
     if (conversions.length) {
+        console.log(`Publishing ${conversions.length} conversions (from batch of ${events.length} events) to Zapier.`)
         // Zapier accepts a single item or an array
         await fetch(config.zapier_webhook_url, {
             method: 'POST',

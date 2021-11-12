@@ -1,0 +1,28 @@
+[
+    {
+        "conversionName": "Sign up - self-hosted paid",
+        "eventDetails": {
+            "event": "$autocapture",
+            "text": "verify card",
+            "url": "https://license.posthog.com/",
+            "url_matching": "contains"
+        }
+    },
+    {
+        "conversionName": "Sign up - self-hosted free",
+        "eventDetails": {
+            "event": "$pageview",
+            "url": "https://posthog.com/signup/self-host/deploy",
+            "url_matching": "contains"
+        }
+    },
+    {
+        "conversionName": "Sign up - self-hosted free",
+        "eventDetails": {
+            "event": "$pageview",
+            "text": "posthog cloud",
+            "url": "https://app.posthog.com/signup",
+            "url_matching": "contains"
+        }
+    }
+]
