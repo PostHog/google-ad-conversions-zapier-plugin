@@ -5,8 +5,9 @@ import {
     eventMatchesDefinition,
     formatTimestampForGoogle,
     getConversionEventData,
+    ConversionDefinition,
 } from '../index'
-import type { EventType, ActionSingleEventDefinition} from '../index'
+import type { EventType } from '../index'
 
 
 describe('matchValue', () => {
@@ -113,25 +114,19 @@ function buildEvent(event: Partial<EventType>): EventType {
     }
 }
 
-function buildDefinition(details: Partial<ActionSingleEventDefinition['eventDetails']>, conversionName: string, actionId?: number): ActionSingleEventDefinition {
-    const defaultDetails: ActionSingleEventDefinition['eventDetails'] = {
-        id: 'some_id',
+function buildDefinition(details: Partial<ConversionDefinition['eventDetails']>, conversionName: string, actionId?: number): ConversionDefinition {
+    const defaultDetails: ConversionDefinition['eventDetails'] = {
         event: '$pageview',
-        tag_name: null,
         text: null,
         href: null,
-        selector: null,
         url: null,
-        name: null,
         url_matching: ActionStepUrlMatching.Exact,
-        properties: [],
     }
     const eventDetails = {
         ...defaultDetails,
         ...details,
     }
     return {
-        id: actionId ?? 0,
         eventDetails,
         conversionName: conversionName,
     }
@@ -168,67 +163,6 @@ describe('eventMatchesDefinition - pageview and custom events', () => {
 })
 
 describe('eventMatchesDefinition - autocapture', () => {
-    test('matches autocapture with tag_name and href', () => {
-        const event = buildEvent({
-            event: '$autocapture',
-            properties: {
-                elements: [
-                    {
-                        "text": "Heatmaps",
-                        "tag_name": "a",
-                        "href": "/docs/user-guides/toolbar",
-                    }
-                ]
-            },
-        })
-        const { eventDetails } = buildDefinition({
-            event: '$autocapture',
-            tag_name: 'a',
-            href: '/docs/user-guides/toolbar',
-        }, 'some_conversion')
-        expect(eventMatchesDefinition(event, eventDetails)).toBe(true)
-    })
-    test('does not match autocapture with wrong href', () => {
-        const event = buildEvent({
-            event: '$autocapture',
-            properties: {
-                elements: [
-                    {
-                        "tag_name": "a",
-                        "href": "/some-random-site",
-                    }
-                ]
-            },
-        })
-        const { eventDetails } = buildDefinition({
-            event: '$autocapture',
-            tag_name: 'a',
-            href: '/docs/user-guides/toolbar',
-        }, 'some_conversion')
-        expect(eventMatchesDefinition(event, eventDetails)).toBe(false)
-    })
-    test('does not match autocapture with wrong DOM tree', () => {
-        const event = buildEvent({
-            event: '$autocapture',
-            properties: {
-                elements: [
-                    {
-                        "tag_name": "span",
-                        "text": "some irrelevant text"
-                    },
-                    {
-                        "tag_name": "div",
-                    }
-                ]
-            },
-        })
-        const { eventDetails } = buildDefinition({
-            event: '$autocapture',
-            tag_name: 'a',
-            href: '/docs/user-guides/toolbar',
-        }, 'some_conversion')
-        expect(eventMatchesDefinition(event, eventDetails)).toBe(false)
-    })
     test('matches autocapture with exact text match', () => {
         const event = buildEvent({
             event: '$autocapture',
@@ -247,29 +181,6 @@ describe('eventMatchesDefinition - autocapture', () => {
             text: 'Heatmaps',
         }, 'some_conversion')
         expect(eventMatchesDefinition(event, eventDetails)).toBe(true)
-    })
-    test('fails autocapture by selector', () => {
-        const event = buildEvent({
-            event: '$autocapture',
-            properties: {
-                elements: [
-                    {
-                        "text": "Heatmaps",
-                        "tag_name": "a",
-                        "href": "/docs/user-guides/toolbar",
-                    },
-                    {
-                        "tag_name": "div",
-                    }
-                ]
-            },
-        })
-        const { eventDetails } = buildDefinition({
-            event: '$autocapture',
-            href: '/docs/user-guides/toolbar',
-            selector: 'div > a',
-        }, 'some_conversion')
-        expect(eventMatchesDefinition(event, eventDetails)).toBe(false)
     })
 })
 
@@ -313,89 +224,6 @@ describe('eventMatchesDefinition - url_matching', () => {
             event: 'custom_event_name',
             url: 'https?:\/\/(w)+',
             url_matching: 'regex' as ActionStepUrlMatching.Regex,
-        }, 'some_conversion')
-        expect(eventMatchesDefinition(event, eventDetails)).toBe(true)
-    })
-})
-
-describe('eventMatchesDefinition - properties', () => {
-    test('matches on custom_property', () => {
-        const event = buildEvent({
-            event: 'custom_event_name',
-            properties: {
-                custom_property: 'https://www.example.com/some-page',
-            },
-        })
-        const { eventDetails } = buildDefinition({
-            event: 'custom_event_name',
-            properties: [
-                {
-                    key: 'custom_property',
-                    operator: 'exact' as PropertyOperator.Exact,
-                    type: 'event',
-                    value: 'https://www.example.com/some-page',
-                }
-            ]
-        }, 'some_conversion')
-        expect(eventMatchesDefinition(event, eventDetails)).toBe(true)
-    })
-    test('does not match on custom_property with wrong value', () => {
-        const event = buildEvent({
-            event: 'custom_event_name',
-            properties: {
-                custom_property: 'https://www.example.com/some-page',
-            },
-        })
-        const { eventDetails } = buildDefinition({
-            event: 'custom_event_name',
-            properties: [
-                {
-                    key: 'custom_property',
-                    operator: 'exact' as PropertyOperator.Exact,
-                    type: 'event',
-                    value: 'https://www.example.com/page-2',
-                }
-            ]
-        }, 'some_conversion')
-        expect(eventMatchesDefinition(event, eventDetails)).toBe(false)
-    })
-    test('matches on custom_property with icontains operator', () => {
-        const event = buildEvent({
-            event: 'custom_event_name',
-            properties: {
-                custom_property: 'https://www.example.com/some-page',
-            },
-        })
-        const { eventDetails } = buildDefinition({
-            event: 'custom_event_name',
-            properties: [
-                {
-                    key: 'custom_property',
-                    operator: 'icontains' as PropertyOperator.IContains,
-                    type: 'event',
-                    value: '/some-page',
-                }
-            ]
-        }, 'some_conversion')
-        expect(eventMatchesDefinition(event, eventDetails)).toBe(true)
-    }),
-    test('matches on custom_property with icontains as array operator', () => {
-        const event = buildEvent({
-            event: 'custom_event_name',
-            properties: {
-                custom_property: 'https://www.example.com/some-page',
-            },
-        })
-        const { eventDetails } = buildDefinition({
-            event: 'custom_event_name',
-            properties: [
-                {
-                    key: 'custom_property',
-                    operator: 'icontains' as PropertyOperator.IContains,
-                    type: 'event',
-                    value: ['/some-page', '/another-page'],
-                }
-            ]
         }, 'some_conversion')
         expect(eventMatchesDefinition(event, eventDetails)).toBe(true)
     })
@@ -511,7 +339,6 @@ describe('getConversionEventData', () => {
             url: '/some-page',
             url_matching: 'contains' as ActionStepUrlMatching.Contains,
             text: 'Heatmaps',
-            tag_name: 'a',
         }, 'some_conversion')
         const data = getConversionEventData(event, ['$autocapture'], [definition])
         expect(data).toEqual({
