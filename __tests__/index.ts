@@ -166,15 +166,19 @@ describe('eventMatchesDefinition - autocapture', () => {
     test('matches autocapture with exact text match', () => {
         const event = buildEvent({
             event: '$autocapture',
-            properties: {
-                elements: [
-                    {
-                        "text": "Heatmaps",
-                        "tag_name": "a",
-                        "href": "/docs/user-guides/toolbar",
-                    }
-                ]
-            },
+            elements: [
+                {
+                    "text": "Heatmaps",
+                    "tag_name": "a",
+                    "href": "/docs/user-guides/toolbar",
+                    "attributes": {
+                        "attr__href": "/docs/user-guides/toolbar",
+                    },
+                    "nth_child": 1,
+                    "nth_of_type": 1,
+                    "order": 0,
+                }
+            ]
         })
         const { eventDetails } = buildDefinition({
             event: '$autocapture',
@@ -324,14 +328,20 @@ describe('getConversionEventData', () => {
             properties: {
                 gclid: 'abcdef0123456',
                 $current_url: 'https://www.example.com/some-page',
-                elements: [
-                    {
-                        "text": "Heatmaps",
-                        "tag_name": "a",
-                        "href": "/docs/user-guides/toolbar",
-                    }
-                ],
             },
+            elements: [
+                {
+                    "text": "Heatmaps",
+                    "tag_name": "a",
+                    "href": "/docs/user-guides/toolbar",
+                    "attributes": {
+                        "attr__href": "/docs/user-guides/toolbar",
+                    },
+                    "nth_child": 1,
+                    "nth_of_type": 1,
+                    "order": 0,
+                }
+            ],
             timestamp: testDate,
         })
         const definition = buildDefinition({

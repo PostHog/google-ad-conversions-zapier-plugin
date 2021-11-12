@@ -199,7 +199,7 @@ export function eventMatchesDefinition(event: EventType, eventDetails: Conversio
     if (event.event !== eventDetails.event){
         return false
     }
-    if (shouldCheckForAutocapture(eventDetails) && !elementsMatchAutocaptureCriteria(eventDetails, event.properties.elements)) {
+    if (shouldCheckForAutocapture(eventDetails) && !elementsMatchAutocaptureCriteria(eventDetails, event.elements)) {
         return false
     }
     if (eventDetails.url && eventDetails.url_matching) {
