@@ -1,13 +1,5 @@
 [
     {
-        "conversionName": "test conversion",
-        "eventDetails": {
-            "event": "$pageview",
-            "url": "/demo",
-            "url_matching": "contains"
-        }
-    },
-    {
         "conversionName": "Sign up - self-hosted paid",
         "eventDetails": {
             "event": "$autocapture",
