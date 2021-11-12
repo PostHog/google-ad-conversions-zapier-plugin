@@ -17,7 +17,7 @@
         }
     },
     {
-        "conversionName": "Sign up - self-hosted free",
+        "conversionName": "Sign up - cloud",
         "eventDetails": {
             "event": "$pageview",
             "text": "posthog cloud",

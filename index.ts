@@ -156,7 +156,7 @@ function elementsMatchAutocaptureCriteria(criteria: AutocaptureCriteria, element
         elements = elements.filter(element => element.text === criteria.text)
     }
     if (criteria.href) {
-        elements = elements.filter(element => element.href === criteria.href)
+        elements = elements.filter(element => element.href === criteria.href || element.attributes.attr__href === criteria.href)
     }
     return elements.length > 0
 }
