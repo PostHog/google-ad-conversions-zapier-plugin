@@ -19,7 +19,7 @@ export async function setupPlugin({ config, global, storage }) {
     if (!action_map || !zapier_webhook_url || !ph_project_key || !ph_personal_key) {
         throw new Error('Missing config values! Make sure to set conversion_definitions and zapier_webhook_url')
     }
-    const actionMap = config.action_map.split(',').map(entry => entry.split(':'))
+    const actionMap = Object.fromEntries(config.action_map.split(',').map(entry => entry.split(':')))
     global.actionMap = actionMap
     if (initial_last_invoked_at) {
         if (!isValidDate(initial_last_invoked_at)) {
@@ -32,6 +32,8 @@ export async function setupPlugin({ config, global, storage }) {
         await storage.set('last_invoked_at', now)
     }
     global.ph_host = ph_host || 'http://app.posthog.com'
+    global.ph_project_key = ph_project_key
+    global.ph_personal_key = ph_personal_key
 }
 
 function isValidDate(date: string): boolean {
@@ -73,14 +75,18 @@ async function getGclidForPerson(distinctId, { ph_host, ph_project_key, ph_perso
 
 async function getEventsForAction(actionId, after, { ph_host, ph_project_key, ph_personal_key }) {
     // Fetches and transforms event data for the given action
-    let url = `/api/event?action_id=${actionId}&after=${after}`
     const events = []
     let hasNext = true
     let retries = 0
+    let url = `/api/event?action_id=${actionId}&after=${after}`
 
     while (hasNext && retries < 3) {
         console.log(`get_conversions_for_action: Making request to ${url}`)
-        const response = await posthog.api.get(url, { host: ph_host, projectApiKey: ph_project_key, personalApiKey: ph_personal_key })
+        const response = await posthog.api.get(url, {
+            host: ph_host,
+            projectApiKey: ph_project_key,
+            personalApiKey: ph_personal_key
+        })
         if (response.status != 200) {
             throw new Error(`Error getting events: ${response.status}`)
         }
@@ -140,7 +146,7 @@ async function extractGclidFromEvent(event: EventType, { ph_host, ph_project_key
 }
 
 export async function formatConversionEventData(event: EventType, conversionName: string, actionId: number, { ph_host, ph_project_key, ph_personal_key }: any): Promise<ConversionEventData | null> {
-    const gclid = await extractGclidFromEvent(event, ph_host)
+    const gclid = await extractGclidFromEvent(event, { ph_host, ph_project_key, ph_personal_key })
     if (!gclid) {
         return null
     }
@@ -155,18 +161,20 @@ export async function formatConversionEventData(event: EventType, conversionName
 export const jobs = {
     extractAndSendConversions: async ({ global, storage }) => {
         const { actionMap } = global
-        console.log({ actionMap})
         const conversions = [] as (ConversionEventData | null)[]
-        for (const tuple in actionMap) {
-            const [actionId, conversionName] = tuple
+
+        for (const actionId in actionMap) {
+            const conversionName = actionMap[actionId]
             const after = await storage.get('last_invoked_at')
             if (!isValidDate(after)) {
                 throw new Error(`Missing or invalid last_invoked_at: "${after}"`)
             }
-            const events = await getEventsForAction(actionId, after, global)
-            const conversionData = await Promise.all(events.map(e => formatConversionEventData(e, conversionName, parseInt(actionId), global)))
+            const { ph_host, ph_project_key, ph_personal_key } = global
+            const events = await getEventsForAction(actionId, after, { ph_host, ph_project_key, ph_personal_key })
+            const conversionData = await Promise.all(events.map(e => formatConversionEventData(e, conversionName, parseInt(actionId), { ph_host, ph_project_key, ph_personal_key })))
             conversions.push(...conversionData)
         }
+
         console.log({ conversions: JSON.stringify(conversions) })
         storage.set('last_invoked_at', new Date().toISOString())
     }
