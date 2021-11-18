@@ -31,7 +31,7 @@ export async function setupPlugin({ config, global, storage }) {
         console.log(`No initial_last_invoked_at set; using ${now}`)
         await storage.set('last_invoked_at', now)
     }
-    global.ph_host = ph_host || 'http://app.posthog.com'
+    global.ph_host = ph_host || 'https://app.posthog.com'
     global.ph_project_key = ph_project_key
     global.ph_personal_key = ph_personal_key
 }
@@ -62,7 +62,11 @@ type ConversionEventData = {
 async function getGclidForPerson(distinctId, { ph_host, ph_project_key, ph_personal_key }): Promise<string | null> {
     // TODO support massively parallel requests, https://github.com/PostHog/posthog/issues/7192
     try {
-        const people = await posthog.api.get(`/api/person?distinct_id=${distinctId}`, { host: ph_host, projectApiKey: ph_project_key, personalApiKey: ph_personal_key })
+        const people = await posthog.api.get('/api/person?distinct_id=${distinctId}', {
+            host: ph_host,
+            projectApiKey: ph_project_key,
+            personalApiKey: ph_personal_key,
+        })
         const person = people?.results?.[0]
         if (person) {
             return person.properties.gclid ?? person.properties.$initial_gclid ?? null
@@ -85,7 +89,7 @@ async function getEventsForAction(actionId, after, { ph_host, ph_project_key, ph
         const response = await posthog.api.get(url, {
             host: ph_host,
             projectApiKey: ph_project_key,
-            personalApiKey: ph_personal_key
+            personalApiKey: ph_personal_key,
         })
         if (response.status != 200) {
             throw new Error(`Error getting events: ${response.status}`)
@@ -96,7 +100,9 @@ async function getEventsForAction(actionId, after, { ph_host, ph_project_key, ph
         }
         events.push(...data.results)
         hasNext = !!data.next
-        url = data.next
+        if (hasNext) {
+            url = data.next.replace(ph_host, '')
+        }
     }
 
     return events
@@ -135,11 +141,9 @@ async function extractGclidFromEvent(event: EventType, { ph_host, ph_project_key
     }
 
     // Gclid not available on event or person properties, lookup person
-    if (event.distinct_id) {
-        const gclid = await getGclidForPerson(event.distinct_id, { ph_host, ph_project_key, ph_personal_key })
-        if (gclid) {
-            return gclid
-        }
+    const gclid = await getGclidForPerson(event.distinct_id, { ph_host, ph_project_key, ph_personal_key })
+    if (gclid) {
+        return gclid
     }
 
     return null
